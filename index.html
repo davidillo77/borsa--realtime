@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anàlisi Borsa Temps Real + Gràfics</title>
+  <script>
+    async function consultaDades() {
+      const apiKey = document.getElementById("apiKey").value;
+      const symbols = document.getElementById("symbols").value.split(",").map(s => s.trim().toUpperCase());
+      const output = document.getElementById("resultats");
+      const grafic = document.getElementById("grafic");
+      output.innerHTML = "<strong>Analitzant...</strong><br>";
+
+      for (const symbol of symbols) {
+        output.innerHTML += `<hr><strong>${symbol}</strong><br>`;
+
+        try {
+          const quoteResp = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`);
+          const quote = await quoteResp.json();
+          const canvi = (((quote.c - quote.pc) / quote.pc) * 100).toFixed(2);
+          output.innerHTML += `⭐ Preu actual: ${quote.c}$ (${canvi}%)<br>`;
+
+          const rsiResp = await fetch(`https://finnhub.io/api/v1/indicator?symbol=${symbol}&resolution=D&indicator=rsi&timeperiod=14&token=${apiKey}`);
+          const rsiData = await rsiResp.json();
+          const rsi = rsiData.technicalAnalysis?.rsi?.slice(-1)[0];
+          if (rsi) {
+            output.innerHTML += `📉 RSI: ${rsi.toFixed(2)} `;
+            if (rsi < 30) output.innerHTML += "➔ Possible compra (infravalorada)<br>";
+            else if (rsi > 70) output.innerHTML += "⚠ Sobrecomprada<br>";
+            else output.innerHTML += "⭐ Neutral<br>";
+          } else {
+            output.innerHTML += `📉 RSI: No disponible<br>`;
+          }
+
+          const macdResp = await fetch(`https://finnhub.io/api/v1/indicator?symbol=${symbol}&resolution=D&indicator=macd&token=${apiKey}`);
+          const macdData = await macdResp.json();
+          const macd = macdData.technicalAnalysis?.macd?.macd?.slice(-1)[0];
+          const signal = macdData.technicalAnalysis?.macd?.signal?.slice(-1)[0];
+          if (macd && signal) {
+            output.innerHTML += `📊 MACD: ${macd.toFixed(2)} | Senyal: ${signal.toFixed(2)} `;
+            output.innerHTML += (macd > signal) ? "↗ Tendència alcista<br>" : "↘ Tendència baixista<br>";
+          } else {
+            output.innerHTML += "📊 MACD: No disponible<br>";
+          }
+
+          grafic.innerHTML = `<iframe src='https://s.tradingview.com/embed-widget/mini-symbol-overview/?symbol=NASDAQ%3A${symbol}&locale=es#' width='100%' height='350' frameborder='0' allowtransparency='true' scrolling='no'></iframe>`;
+
+        } catch (e) {
+          output.innerHTML += `❌ Error amb ${symbol}: ${e.message}<br>`;
+        }
+      }
+    }
+  </script>
+</head>
+<body style="font-family: sans-serif; padding: 2rem; max-width: 800px; margin: auto;">
+  <h2>⚖️ Anàlisi de Borsa Temps Real + Gràfic</h2>
+  <p>Introdueix la teva <strong>clau API de Finnhub</strong> i els tíckets de les accions separats per comes.</p>
+
+  <label>API Key: <input id="apiKey" type="text" placeholder="d1cmeipr..." style="width: 100%"></label><br><br>
+  <label>Accions (ex: OXY, NVDA, GOOGL): <input id="symbols" type="text" value="OXY, NVDA, GOOGL" style="width: 100%"></label><br><br>
+  <button onclick="consultaDades()">📈 Inicia Anàlisi</button>
+
+  <div id="resultats" style="margin-top: 2rem; white-space: pre-wrap;"></div>
+  <div id="grafic" style="margin-top: 2rem;"></div>
+</body>
+</html>
